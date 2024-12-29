@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>TODO supply a title</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <canvas id="canvas" width="505" height="505" style="border:1px solid #000000"></canvas> 
+        
+        <script type = "text/javascript">
+        
+        // настройки        
+        var width  = 101;
+        var height = 101;
+        var multWidth  = 5;
+        var multHeight = 5;
+        var peek = 101;
+      
+        //////// СЛУЖЕБН. МЕТОДЫ И ФУНКЦИИ ////////
+        function ring(c,min,max){
+            if(c<min)  { c = c + (max - min + 1); }
+            if(c>max)  { c = c - (max - min + 1); }
+            return c;  
+        }            
+        ///////////////////////////////////////////
+        
+        ////////// СОЗДАНИЕ СРЕДЫ ОБИТАНИЯ //////////////////
+            
+        function Point(){
+            this.value = 0;
+            this.difference = 0;
+            this.points = new Array(5);
+            this.up = null;
+            
+            // вызов извне
+            this.connection = function(point,index){
+                this.points[index] = point;
+            }
+            
+            this.getPoint = function(index){ 
+                return this.points[index];
+            }
+                //---------------------------------------
+            this.process = function(){   
+                this.difference = 0;   
+                
+                for(var i = 0;i<this.points.length;i++){
+                    this.difference = this.difference + ring(this.getPoint(i).value - this.value) ;
+                }
+       
+                this.up.value = ring(this.value + Math.floor(this.difference/4)); 
+                if( this.up.value>-10 ){ this.up.value += 5; }
+                
+                function ring(m){
+                    if ( m < -peek ) { m = m + (2*peek+1); }
+                    if ( m > +peek ) { m = m - (2*peek+1); }
+                    return m;
+                }
+            }
+                //---------------------------------------
+        }
+            
+        function Matrix(width,height){
+                // initialization
+            var square = width*height;    
+            var points;
+            
+                // getters
+            this.getPoints = function(){ return points; }    
+            
+                // create1Plane
+            function addition1(points){
+                for(var y = 0;y<height;y++){    
+                    points[y*width].connection(points[(y+1)*width - 1],1);
+                    points[(y+1)*width - 1].connection(points[y*width],3);
+                }
+                return points;
+            }
+            
+            function addition2(points){
+                for(var i = 0;i<height;i++){ points[width*i].connection(points[width*i],1); }
+                for(var i = 0;i<height;i++){ points[width*i + (width - 1)].connection(points[width*i + (width - 1)],3); }
+                for(var i = 0;i<width;i++){ points[i].connection(points[i],2); }
+                for(var i = 0;i<width;i++){ points[width*(height-1) + i].connection(points[width*(height-1) + i],4); }
+                return points;
+            }        
+            
+            function create1Plane(mode){
+                var points = new Array(square);
+            
+                for(var i = 0;i<square;i++){
+                    points[i] = new Point();
+                }
+                
+                for(var i = 0;i<square;i++){    
+                    points[i].connection(points[i],0);
+                    points[i].connection(points[ring(i-01,0,square-1)],1);
+                    points[i].connection(points[ring(i-width,0,square-1)],2);
+                    points[i].connection(points[ring(i+01,0,square-1)],3);
+                    points[i].connection(points[ring(i+width,0,square-1)],4);
+                }
+                
+                switch(mode){
+                    case 0: break;
+                    case 1: points = addition1(points); break;
+                    case 2: points = addition2(points); break;
+                }
+                                
+                return points;
+            }    
+            
+                // create2Plane
+            function create2Plane (mode){
+                var square = width*height;
+                var points1 = create1Plane(mode);
+                var points2 = create1Plane(mode);
+                for(var i = 0;i<square;i++){
+                    points1[i].up = points2[i];
+                    points2[i].up = points1[i];
+                }
+                return points1;
+            }
+            
+            this.onePlane = function(mode){  
+                return ( points = create1Plane(mode) ); 
+            }
+            
+            this.twoPlane = function(mode){ 
+                return ( points = create2Plane(mode) ); 
+            }
+            
+                // helpers
+            function twoDoneD(x,y){ return width*y + x; }
+            
+            this.pointOfAngle = function(a,b){
+                return points[twoDoneD(a,b)];
+            }
+            
+            this.pointOfAngle = function(a,b,value){
+                points[twoDoneD(a,b)].value = value;
+                return points[twoDoneD(a,b)];
+            }
+    
+            var wd2 = Math.floor(width/2);
+            var hd2 = Math.floor(height/2);    
+    
+            this.pointOfCenter = function(a,b){
+                return points[twoDoneD(wd2+a,hd2+b)];
+            } 
+           
+            this.pointOfCenter = function(a,b,value){                
+                points[twoDoneD(wd2+a,hd2+b)].value = value;
+                return points[twoDoneD(wd2+a,hd2+b)];
+            }   
+                   
+        }
+        /////////////////////////////////////////////////
+        
+        ///////КНОПКА ЛОГИКИ И ОТРИСОВКА/////////////////
+        function Button(){
+            var matrix = new Matrix(width,height);
+            this.points = matrix.twoPlane(2);
+            
+                // стартовый рисунок 
+            for(var y = 0; y<height/2; y++){  
+                matrix.pointOfAngle(Math.floor(width/2+0),y,+121);
+                matrix.pointOfAngle(Math.floor(width/2+1),y,-121);
+            }    
+           
+                // process
+            this.process = function(){
+                for(var i = 0;i<this.points.length;i++){
+                    this.points[i].process();
+                    this.points[i] = this.points[i].up;
+                }    
+            }
+        }
+       
+        function Panel(points){            
+            // создание кисти    
+            this.canvas = document.getElementById('canvas');    
+            this.context = this.canvas.getContext('2d');
+                
+            this.repaint = function(){
+                    
+                var i = 0;
+                var bright = 0;
+                var value = 0;
+               
+                for(var y = 0;y<height;y++){
+                    for(var x = 0;x<width;x++){
+                        value = points[i++].value;
+                        bright = Math.floor(( value*250 )/peek);
+                        if( bright<0 )   { bright = -bright;  }
+                        if( bright>250 ) { bright = 250;      }
+                            
+                        this.context.fillStyle = "rgb("+bright+","+bright+","+bright+")" ;
+                        this.context.fillRect(x*multWidth,y*multHeight,multWidth,multHeight);          
+                    }    
+                }
+            }
+        }      
+        ////////////////////////////////////////////////////        
+        
+        //////////// ЦИКЛ //////////////
+        function cycle(){
+            var button  = new Button ();
+            var panel  = new Panel (button.points);
+          
+            setInterval(function(){
+                button.process();
+                panel.repaint();
+            },0);
+        }
+        /////////////////////////////////
+        
+        cycle();
+        
+        </script>    
+    </body>
+</html>
